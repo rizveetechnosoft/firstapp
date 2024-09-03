@@ -9,7 +9,7 @@ on:
       - main   # Trigger the workflow on pull requests targeting the 'main' branch
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -26,6 +26,18 @@ jobs:
       - name: Install Composer
         run: composer install --prefer-dist --no-progress --no-suggest --no-interaction
 
+      - name: Create .env file
+        run: |
+          echo "APP_NAME=Laravel" > .env
+          echo "APP_ENV=local" >> .env
+          echo "APP_KEY=SomeRandomString" >> .env
+          echo "DB_CONNECTION=mysql" >> .env
+          echo "DB_HOST=127.0.0.1" >> .env
+          echo "DB_PORT=3306" >> .env
+          echo "DB_DATABASE=homestead" >> .env
+          echo "DB_USERNAME=root" >> .env
+          echo "DB_PASSWORD=" >> .env
+
       - name: Generate application key
         run: php artisan key:generate
 
@@ -40,5 +52,5 @@ jobs:
         run: |
           echo "Building and deploying your Laravel application..."
           # Add your deployment commands here
-          # For example:
+          # Example (replace with your actual deployment commands):
           # rsync -avz --exclude='node_modules' --exclude='.git' ./ user@server:/path/to/deploy
