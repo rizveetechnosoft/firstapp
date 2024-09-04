@@ -1,79 +1,52 @@
-name: Laravel CI/CD
-
+name: CI
 on:
-  push:
-    branches:
-      - main   # Trigger the workflow on pushes to the 'main' branch
   pull_request:
     branches:
-      - main   # Trigger the workflow on pull requests targeting the 'main' branch
+      - main
+  push:
+    branches:
+      - main
 
 jobs:
-  build-and-deploy:
+  tests:
     runs-on: ubuntu-latest
 
     services:
       mysql:
         image: mysql:8.0
         env:
-          MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: homestead
-          MYSQL_USER: root
-          MYSQL_PASSWORD: root
+          MYSQL_ALLOW_EMPTY_PASSWORD: yes
+          MYSQL_DATABASE: test
         ports:
           - 3306:3306
-        options: --health-cmd="mysqladmin ping --silent" --health-interval=10s --health-timeout=5s --health-retries=5
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 1
 
-      - name: Set up PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.2'
-          extensions: mbstring, xml, bcmath, mysql
-          coverage: xdebug
+    - name: Cache composer dependencies
+      uses: actions/cache@v2
+      with:
+        path: vendor
+        key: composer-${{ hashFiles('**/composer.lock') }}
+        restore-keys: |
+          composer-
 
-      - name: Install Composer
-        run: composer install --prefer-dist --no-progress --no-suggest --no-interaction
+    - name: Install PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: 8.1
 
-      - name: Create .env file
-        run: |
-          echo "APP_NAME=Laravel" > .env
-          echo "APP_ENV=testing" >> .env
-          echo "APP_KEY=SomeRandomString" >> .env
-          echo "DB_CONNECTION=mysql" >> .env
-          echo "DB_HOST=127.0.0.1" >> .env
-          echo "DB_PORT=3306" >> .env
-          echo "DB_DATABASE=homestead" >> .env
-          echo "DB_USERNAME=root" >> .env
-          echo "DB_PASSWORD=root" >> .env
+    - name: Install composer dependencies
+      run: |
+        composer install --no-scripts
 
-      - name: Wait for MySQL to be ready
-        run: |
-          for i in {1..30}; do
-            if mysqladmin ping -h127.0.0.1 --silent; then
-              echo "MySQL is up"
-              break
-            else
-              echo "Waiting for MySQL..."
-              sleep 1
-            fi
-          done
-        continue-on-error: true
+    - name: Prepare Laravel Application
+      run: |
+        cp .env.ci .env
+        php artisan key:generate
 
-      - name: Generate application key
-        run: php artisan key:generate
-
-      - name: Run database migrations
-        run: php artisan migrate --env=testing
-
-      - name: Run tests
-        run: vendor/bin/phpunit --env=testing
-
-      - name: Build and Deploy
-        if: github.ref == 'refs/heads/main'
-        run: |
-          echo "Building and deploying your Laravel application..."
-          # Add your deployment commands here
+    - name: Run Test suite
+      run: php artisan test
